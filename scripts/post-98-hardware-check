@@ -1,0 +1,81 @@
+#!/bin/bash
+
+this_host=$(/bin/hostname -s)
+offline=0
+note=""
+
+function check_status(){
+    # $1 = expected value
+    # $2 = status
+    # $3 = message if different
+
+    if [ "$1" -ne "$2" ] ; then
+        offline=1
+	if [ -z "$note" ] ; then
+            note=$3
+	else
+            note="$note; $3"
+	fi
+    fi
+}
+
+# Check 0 - remove /.rocks-release
+if [ -e /.rocks-release ] ; then
+    /bin/rm /.rocks-release
+fi
+
+# Check 1 - IB cards
+
+for card in mlx4_0 mlx4_1 ; do
+    /usr/bin/ibv_devices | /bin/grep $card >& /dev/null
+    check_status 0 $? "$card missing"
+done
+
+# Check 1.5 - IB ports
+for card in mlx4_0 mlx4_1 ; do
+    /usr/bin/ibv_devinfo -d $card | /bin/grep PORT_ACTIVE >& /dev/null
+    check_status 0 $? "$card port not active"
+done
+
+# Check 2 - Memory
+
+/opt/sdsc/sbin/check_mem >& /dev/null
+check_status 0 $? "memory problems"
+
+# Check 3 - Check CPUs
+
+cpu_count=`/bin/grep processor /proc/cpuinfo | wc -l`
+check_status 16 $cpu_count "processor count off"
+
+
+# Check 4 - Check Lustre
+
+/bin/grep monkey /etc/mtab >/dev/null 2>&1
+if [ $? != 0 ] ; then
+    /bin/mount /oasis/scratch 
+    check_status 0 $? "oasis scratch problems"
+fi
+/bin/grep meerkat /etc/mtab >/dev/null 2>&1
+if [ $? != 0 ] ; then
+    /bin/mount /oasis/projects/nsf
+    check_status 0 $? " oasis projects nsf problems"
+fi
+
+# Check 5 -Check rpcbind - though not hardware
+/etc/init.d/rpcbind status > /dev/null 2>&1
+if [ $? != 0 ] ; then
+    /etc/init.d/rpcbind  restart > /dev/null 2>&1
+    check_status 0 $? " rpcbind not started"
+fi
+
+# Offline node if any checks fail
+
+if [ "$offline" -ne "0" ] ; then
+    /opt/torque/bin/pbsnodes -oN "$note" $this_host
+    /usr/bin/logger -p local0.alert "Node offlined due to: $note"
+    exit -1
+else
+    /usr/bin/logger -p local0.alert "Post-boot hardware check complete"
+fi
+
+exit 0
