@@ -1,0 +1,149 @@
+#!/bin/ksh
+PBS_JOBID=$1
+PBS_USER=$2
+GROUP=$3
+JOB=$4
+SESSION=$5
+LIMITS=$6
+RES=$7
+QUEUE=$8
+ACCOUNT=$9
+
+function remove_file
+{
+        if [ -z "$(/sbin/fuser $1 2>/dev/null)" ]; then
+           /bin/rm -f $1
+        fi
+}
+
+
+/usr/bin/logger -p local0.alert "********  running epilogue at $(date) for job PBS_JOBID $1"
+
+#Remove user from access.conf
+/usr/bin/perl -pi -e "s/\s*$PBS_USER\b//" /etc/security/access.conf
+
+PBS_HOME=/var/spool/torque
+
+
+# Kill leftover from user not associated with PBS_JOBID : 
+   # as user delete the temporary directory
+   su - $PBS_USER -c "/bin/rm -rf /tmp/PBS_TEMP_$PBS_JOBID "
+
+   # see if there are other temporary directories on this node
+   # which are owned by the same user
+   others=$(su - $PBS_USER -c "ls -ld /tmp/PBS_TEMP_* "  2> /dev/null | awk -F" " ' { print $3, $NF }' | grep $PBS_USER |  awk -F" " ' { print $NF }')
+   # Only kill leftovers if that user doesn't have any other jobs on that node
+   if [ "$others" == "" ]; then
+
+      logger -p local0.alert "$HN KILLING leftover PID from PBS_JOBID $PBS_JOBID"
+      /usr/bin/killall -9 -u $PBS_USER 
+      sleep 10
+      /usr/bin/killall -9 -u $PBS_USER
+
+     # kill leftover allocated semiphores
+      if [ -n $(ipcs -s | grep " $PBS_USER ") ]; then
+      for S in $(ipcs -s | grep " $PBS_USER " | awk ' {print $2} '); do
+      /usr/bin/ipcrm -s $S 
+      done
+      fi
+
+     # kill leftover allocated shared memory
+      if [ -n $(ipcs -m | grep " $PBS_USER ") ]; then   
+      for M in $(ipcs -m | grep " $PBS_USER " | grep -v key| awk ' {print $2} '); do
+      /usr/bin/ipcrm -m $M
+      done
+      fi
+
+     # Left Over processes that do not kill
+     LO=$(/bin/ps -u $PBS_USER -o "pid=")
+     # wait a little while and check again
+     if [ -n "$LO" ] ; then
+       /bin/sleep 20
+     fi
+
+     LO=$(/bin/ps -u $PBS_USER -o "pid=")
+     if [ -n "$LO" ] ; then
+       for i in $LO ; do
+        /usr/bin/logger -p local0.alert "*******  $HN leftover PID $i from PBS_JOBID $PBS_JOBID"
+       done
+    # /opt/torque/bin/pbsnodes -o $(/bin/hostname -s)
+      /opt/torque/bin/pbsnodes -o -N "leftover PID from $PBS_JOBID" $(/bin/hostname -s)
+     fi
+   
+    # kill any files the user created in /tmp
+    tmpfiles=`/bin/ls -l /tmp | /bin/awk ' {print $3 " " $9}' | /bin/grep "^$PBS_USER" | /bin/awk ' {print $2}'`
+    if test -n "$tmpfiles"; then
+      for F in $tmpfiles; do
+       /bin/rm -fr /tmp/$F
+      done
+    fi
+
+   else
+     logger -p local0.alert "$HN other jobs running $PBS_JOBID and $others"
+   fi
+
+
+
+# Remove Oasis per job scratch space if it is empty
+/usr/sbin/lctl --net tcp ping 172.25.32.125  > /dev/null 2>&1
+R1=$?
+/usr/sbin/lctl --net tcp ping 172.25.32.253  > /dev/null 2>&1
+R2=$?
+
+if [[ $R1 == 0 || $R2 == 0 ]] ; then
+    if [ -d /oasis/scratch/$PBS_USER/$PBS_JOBID ] ; then
+	/bin/rmdir  --ignore-fail-on-non-empty /oasis/scratch/$PBS_USER/$PBS_JOBID
+	/usr/bin/logger -p local0.alert "epilogue: remove if empty /oasis/scratch/$PBS_USER/$PBS_JOBID"
+    else
+	/usr/bin/logger -p local0.alert "epilogue: /oasis/scratch/$PBS_USER/$PBS_JOBID does not exist "
+    fi
+else
+    /usr/bin/logger -p local0.alert  "epilogue: /oasis not responding!!!"
+    /opt/torque/bin/pbsnodes -o $(hostname -s)
+    /opt/torque/bin/pbsnodes -N "/oasis not responding" $(hostname -s)
+fi
+
+# Remove local per job scratch space
+if [ -d /scratch/$PBS_USER/$PBS_JOBID ] ; then
+    # Record current /scratch usage
+    block_usage=$(/bin/df -B 1024 /scratch | grep scratch)
+    inode_usage=$(/bin/df -i /scratch | grep scratch)
+    /usr/bin/logger -p local0.alert "sdsc_stats job end $PBS_JOBID $PBS_USER local scratch block usage $block_usage"
+    /usr/bin/logger -p local0.alert "sdsc_stats job end $PBS_JOBID $PBS_USER local scratch inode usage $inode_usage"
+
+    /bin/rm -rf /scratch/$PBS_USER/$PBS_JOBID
+    /usr/bin/logger -p local0.alert "epilogue: removed /scratch/$PBS_USER/$PBS_JOBID"
+else
+    /usr/bin/logger -p local0.alert "epilogue: /scratch filesystem not mounted"
+fi
+
+
+# get rid of all ordinary files in the /tmp directory older than 168h (7 days)
+# and not accessed or modified in the past 168 hours.
+
+/usr/bin/find /tmp -xdev -atime +8 -mtime +8 -type f -print | \
+        while read FILE2REM
+        do
+                remove_file $FILE2REM
+        done
+
+
+# check for auotmount 
+/bin/ps -ef |grep automount |grep -v grep > /dev/null 2>&1
+st=$?
+if [ $st -ne 0 ] ; then
+    /sbin/service autofs start >> /var/log/local0 2>&1
+    sleep 10
+    /bin/ps -ef |grep automount |grep -v grep > /dev/null 2>&1
+    st=$?
+    if [ $st -ne 0 ] ; then
+        /usr/bin/logger -p local0.alert  "epilogue: automount not started, Giving up!  exit=2 "
+        /opt/torque/bin/pbsnodes -o $(hostname -s)
+        /opt/torque/bin/pbsnodes -N "automount failed" $(hostname -s)
+	exit 2
+    fi
+fi
+   
+exit 0
+
+
