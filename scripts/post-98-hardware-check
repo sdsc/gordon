@@ -1,4 +1,13 @@
 #!/bin/bash
+#
+# This script is run out of /etc/rc.d/rocksconfig.d/,
+# and is called at boot time, along with job start and end.
+#
+# If any check fails the node is offlined with a note.
+#
+# The name is slightly misleading, since not all of the 
+# checks are strictly hardware.
+
 
 this_host=$(/bin/hostname -s)
 offline=0
@@ -9,9 +18,9 @@ function check_status(){
     # $2 = status
     # $3 = message if different
 
-    if [ "$1" -ne "$2" ] ; then
+    if [[ $1 != $2 ]] ; then
         offline=1
-	if [ -z "$note" ] ; then
+	if [[ -z $note ]] ; then
             note=$3
 	else
             note="$note; $3"
@@ -20,7 +29,7 @@ function check_status(){
 }
 
 # Check 0 - remove /.rocks-release
-if [ -e /.rocks-release ] ; then
+if [[ -e /.rocks-release ]] ; then
     /bin/rm /.rocks-release
 fi
 
@@ -44,33 +53,56 @@ check_status 0 $? "memory problems"
 
 # Check 3 - Check CPUs
 
-cpu_count=`/bin/grep processor /proc/cpuinfo | wc -l`
+cpu_count=$(/bin/grep processor /proc/cpuinfo | wc -l)
 check_status 16 $cpu_count "processor count off"
 
 
 # Check 4 - Check Lustre
 
-/bin/grep monkey /etc/mtab >/dev/null 2>&1
-if [ $? != 0 ] ; then
+# Check 4.1 monkey
+/bin/grep monkey /etc/mtab > /dev/null 2>&1
+if [[ $? != 0 ]] ; then
     /bin/mount /oasis/scratch 
     check_status 0 $? "oasis scratch problems"
-fi
-/bin/grep meerkat /etc/mtab >/dev/null 2>&1
-if [ $? != 0 ] ; then
-    /bin/mount /oasis/projects/nsf
-    check_status 0 $? " oasis projects nsf problems"
+else
+    # LNET ping both MDSes and ensure that at least one responds
+    /usr/sbin/lctl --net tcp ping 172.25.32.125  > /dev/null 2>&1
+    mds1ping=$?
+    /usr/sbin/lctl --net tcp ping 172.25.32.253  > /dev/null 2>&1
+    mds2ping=$?
+    check_status 1 (( $mds1ping != 0 && $mds2ping != 0 )) "oasis scratch problems"
 fi
 
-# Check 5 -Check rpcbind - though not hardware
+# Check 4.2 meerkat
+/bin/grep meerkat /etc/mtab >/dev/null 2>&1
+if [[ $? != 0 ]] ; then
+    /bin/mount /oasis/projects/nsf
+    check_status 0 $? " oasis projects nsf problems"
+else
+    # LNET ping both MDSes and ensure that at least one responds
+    /usr/sbin/lctl --net tcp ping 172.25.33.53  > /dev/null 2>&1
+    mds1ping=$?
+    /usr/sbin/lctl --net tcp ping 172.25.33.25  > /dev/null 2>&1
+    mds2ping=$?
+    check_status 1 (( $mds1ping != 0 && $mds2ping != 0 )) "oasis projects nsf problems"
+fi
+
+# Check 5 - Check rpcbind
+
 /etc/init.d/rpcbind status > /dev/null 2>&1
-if [ $? != 0 ] ; then
+if [[ $? != 0 ]] ; then
     /etc/init.d/rpcbind  restart > /dev/null 2>&1
-    check_status 0 $? " rpcbind not started"
+    rpcbind_status=$?
+    check_status 0 $rpcbind_status " rpcbind not started"
+    # if rpbcbind is bounced and is OK, need to restart channeld
+    if [[ $rpcbind_status == 0 ]] ; then
+        /etc/init.d/channeld restart
+    fi
 fi
 
 # Offline node if any checks fail
 
-if [ "$offline" -ne "0" ] ; then
+if [[ $offline != 0 ]] ; then
     /opt/torque/bin/pbsnodes -oN "$note" $this_host
     /usr/bin/logger -p local0.alert "Node offlined due to: $note"
     exit -1
