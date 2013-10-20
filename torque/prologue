@@ -1,117 +1,65 @@
-#!/bin/ksh
+#!/bin/bash
+#
+# Gordon prologue, called on the mom. Calls the common script,
+# prologue.common.
+#
+# See the Torque docs for reference:
+# http://docs.adaptivecomputing.com/torque/Content/topics/12-appendices/prologueAndEpliogueScripts.htm
+
 PBS_JOBID=$1
 PBS_USER=$2
-GROUP=$3
+PBS_GROUP=$3
+PBS_JOBNAME=$4
+PBS_RESOURCE_LIMITS=$5
+JOB_QUEUE=$6
+JOB_ACCT=$7
 
-HOSTNAME=$(/bin/hostname -s)
+TORQUE_HOME=/var/spool/torque
+this_host=$(/bin/hostname -s)
 
-/usr/bin/logger -p local0.alert "********  running Compute prologue at $(date) for job PBS_JOBID $1"
+function check_status(){
+    # $1 = expected value
+    # $2 = status
+    # $3 = message if different
+    # Offline node if any checks fail and exit
 
-/usr/bin/logger -p local0.alert "running PBS error check at $(date)"
-
-# Temporarily disabling this while we deal wtih 
-# sisters not writing stderr and stdout files
-# /opt/torque/bin/pbsnodes $HOSTNAME | grep ERROR
-# if [ $? -eq 0 ] ; then
-#         /usr/bin/logger -p local0.alert  "prologue: pbs ERROR: prolog/epilog failed!  exit=6 "
-#         /opt/torque/bin/pbsnodes -N "ERROR: prolog/epilog failed!" $HOSTNAME
-#         /opt/torque/bin/pbsnodes -o $HOSTNAME
-# #        exit 6
-# fi
-
-/usr/bin/logger -p local0.alert "running hardware-check at $(date)"
-
-if [ -x /etc/rc.d/rocksconfig.d/post-98-hardware-check ] ; then
-  /etc/rc.d/rocksconfig.d/post-98-hardware-check
-  if [ $? -ne 0 ] ; then
-  /usr/bin/logger -p local0.alert "$HOSTNAME failed hardware-check at  $(date)"
-  exit 99
-  fi
-else      
-/usr/bin/logger -p local0.alert "post-98-hardware-check not found "  
-fi 
-
-# check for auotmount 
-     /bin/ps -ef |grep automount |grep -v grep > /dev/null 2>&1
-     st=$?
-     if [ $st -ne 0 ] ; then
-     /sbin/service autofs start >> /var/log/local0 2>&1
-     sleep 10
-     /bin/ps -ef |grep automount |grep -v grep > /dev/null 2>&1
-     st=$?
-       if [ $st -ne 0 ] ; then
-        /usr/bin/logger -p local0.alert  "prologue: automount not started, Giving up!  exit=2 "
-        /opt/torque/bin/pbsnodes -o $HOSTNAME
-        /opt/torque/bin/pbsnodes -N "automount failed" $HOSTNAME
-       exit 2
-       fi
-     fi
-
-# Add user to access list
-/usr/bin/perl -pi -e "s/(EXCEPT.*):/\$1 $PBS_USER:/" /etc/security/access.conf
-
-# remove left over lock files
-for i in $(cd /tmp; ls PBS_TEMP* 2>/dev/null )  ; do
-  test=${i%%".g"*}
-  test=${test##*'P_'}
-## qstat: Unknown Job Id rc = 153
-  /opt/torque/bin/qstat $test >/dev/null 2>&1
-  st=$?
-  if [ $st -eq 153 ] ; then
-  /usr/bin/logger -p local0.alert "prologue: removing leftover lock file /tmp/$i"
-  /bin/rm /tmp/$i
-  else
-  /usr/bin/logger -p local0.alert "prologue: rc=$st job $test running with lock /tmp/$i "
-  fi
-done
-
-# create lock file per user and job
-su - $PBS_USER -c "/bin/touch /tmp/PBS_TEMP_$PBS_JOBID "
-
-#Create Oasis scratch directory per job and user 
-      if [ -d /oasis/scratch/$PBS_USER/$PBS_JOBID ] ; then
-       /usr/bin/logger -p local0.alert "prologue: /oasis/scratch/$PBS_USER/$PBS_JOBID exists"
-      else 
-       /bin/mkdir -p /oasis/scratch/$PBS_USER/$PBS_JOBID
-       /bin/chmod o+rx /oasis/scratch/$PBS_USER
-       /bin/chown -R $PBS_USER.$GROUP /oasis/scratch/$PBS_USER/$PBS_JOBID
-      fi
-
-# Removed until all noflash nodes return
-# #create local per job scratch space
-# # check for scratch filesystem
-# if [[ $HOSTNAME == gcn-18-* || $HOSTNAME == gcn-19-* ]] ; then
-#    FLASH=noflash
-#  else
-#    FLASH=flash
-#    scra=sdb
-# fi
-FLASH=flash
-    
-if [[ $FLASH == "flash" ]] ; then
-    SCRA=$(/bin/mount| /bin/grep "$scra"| awk '{print $1}')
-    if [[ "$SCRA" != "" ]] ; then
-        /bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
-        /bin/chmod o+rx /scratch/$PBS_USER
-        /bin/chown -R $PBS_USER /scratch/$PBS_USER/$PBS_JOBID
-        /usr/bin/logger -p local0.alert " created $PBS_USER.$GROUP /scratch/$PBS_USER/$PBS_JOBID"
-
-        # Log current usage of /scratch
-        block_usage=$(/bin/df -B 1024 /scratch | grep scratch)
-        inode_usage=$(/bin/df -i /scratch | grep scratch)
-        /usr/bin/logger -p local0.alert "sdsc_stats job start $PBS_JOBID $PBS_USER local scratch block usage $block_usage"
-        /usr/bin/logger -p local0.alert "sdsc_stats job start $PBS_JOBID $PBS_USER local scratch inode usage $inode_usage"
-    else
-        /usr/bin/logger -p local0.alert "prologue: /scratch filesystem not mounted "
-        /opt/torque/bin/pbsnodes -N "/scratch filesystem not mounted "  $HOSTNAME
-        /opt/torque/bin/pbsnodes -o $HOSTNAME
+    if [[ $1 != $2 ]] ; then
+        note=$3
+        /opt/torque/bin/pbsnodes -oN "$note" $this_host
+        /usr/bin/logger -p local0.alert "Node offlined due to: $note"
+        exit -1
     fi
+}
+
+# Action 1 - Look for PBS ERROR
+
+/opt/torque/bin/pbsnodes $this_host | grep ERROR  >& /dev/null
+check_status 0 $? "ERROR in Torque status"
+
+# Action 3 - Create user-job lock file
+/bin/su - $PBS_USER -c "/bin/touch /tmp/PBS_TEMP_$PBS_JOBID"
+
+# Action 5 - Create local scratch directory
+/bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
+check_status 0 $? "Cannot create local scratch"
+/bin/chmod o+rx /scratch/$PBS_USER
+/bin/chown -R $PBS_USER /scratch/$PBS_USER/$PBS_JOBID
+
+# Check for node file to see if we're the mother superior
+if [[ -e /var/spool/torque/aux/$PBS_JOBID ]] ; then
+    # Action 5.5 (Mother Superior) - Create Oasis scratch dir
+    /bin/mkdir -p /oasis/scratch/$PBS_USER/$PBS_JOBID
+    check_status 0 $? "Lustre issue, unable to create Oasis scratch dir"
+    /bin/chmod o+rx /oasis/scratch/$PBS_USER
+    /bin/chown -R $PBS_USER.$PBS_GROUP /oasis/scratch/$PBS_USER/$PBS_JOBID
 else
-       /usr/bin/logger -p local0.alert "noflash node, no check on /scratch filesystem "
-fi      
+    # Action 5.5 (Sisters) - Touch stderr/stdout files
+    touch $TORQUE_HOME/spool/$PBS_JOBID.OU
+    touch $TORQUE_HOME/spool/$PBS_JOBID.ER
+fi
 
+# Action 6 - Add user to access list
 
+/bin/sed -i "s/\(EXCEPT.*\):/\1 $PBS_USER:/" access.conf
 
 exit 0
-
-

@@ -3,14 +3,8 @@ Gordon Prologue & Epilogue
 
 See the [Torque docs][1] for reference.
 
-| File              | Runs on         | Calls           |
-| ------------------|-----------------|-----------------|
-| prologue          | Mother Superior | prologue.common |
-| prologue.parallel | Sister          | prologue.common |
-| prologue.common   | All nodes       |                 |
-| epilogue          | Mother Superior | epilogue.common |
-| epilogue.parallel | Sister          | epilogue.common |
-| epilogue.common   | All nodes       |                 |
+Note that the health check script is called at the beginning and end of
+the job by Torque.
 
 Prologue Actions
 ----------------
@@ -18,12 +12,11 @@ Prologue Actions
 On Both:
 
 1. Check PBS ERROR
-2. Call hardware check
-3. Remove leftover lock files
-4. Create user-job lock file
-5. Create local scratch dir (check return status)
-6. Add user to access.conf
-7. sdsc_stats
+2. Remove leftover lock files
+3. Create user-job lock file
+4. Create local scratch dir (check return status)
+5. Add user to access.conf
+6. sdsc_stats
 
 On Mother Superior:
 
