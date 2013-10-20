@@ -45,6 +45,12 @@ check_status 0 $? "Cannot create local scratch"
 /bin/chmod o+rx /scratch/$PBS_USER
 /bin/chown -R $PBS_USER /scratch/$PBS_USER/$PBS_JOBID
 
+# Record current /scratch usage
+block_usage=$(/bin/df -B 1024 /scratch | /bin/grep scratch)
+inode_usage=$(/bin/df -i /scratch | /bin/grep scratch)
+/usr/bin/logger -p local0.alert "sdsc_stats job start $PBS_JOBID $PBS_USER local scratch block usage $block_usage"
+/usr/bin/logger -p local0.alert "sdsc_stats job start $PBS_JOBID $PBS_USER local scratch inode usage $inode_usage"
+
 # Check for node file to see if we're the mother superior
 if [[ -e /var/spool/torque/aux/$PBS_JOBID ]] ; then
     # Action 5.5 (Mother Superior) - Create Oasis scratch dir
@@ -59,7 +65,6 @@ else
 fi
 
 # Action 6 - Add user to access list
-
-/bin/sed -i "s/\(EXCEPT.*\):/\1 $PBS_USER:/" access.conf
+/bin/sed -i "s/\(EXCEPT.*\):/\1 $PBS_USER:/" /etc/security/access.conf
 
 exit 0

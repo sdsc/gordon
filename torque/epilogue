@@ -72,12 +72,12 @@ function user_cleanup(){
 
     # Remove any files the user created in /tmp
     # Don't remcurse to remove directories, only remove files
-    /bin/find /tmp -user $USER -type 'f' -print0 | /usr/bin/xargs -0 -r rm -f  
+    /bin/find /tmp -user $PBS_USER -type 'f' -print0 | /usr/bin/xargs -0 -r rm -f  
 }
 
 # Check for whether node is dedicated or shared
 
-if [[ $JOB_QUEUE == "normal" ]] ; then
+if [[ $JOB_QUEUE != "shared" ]] ; then
     # Dedicate use, clean up all job lock files
     /bin/rm -f /tmp/PBS_TEMP_*
 
@@ -90,10 +90,10 @@ else
 
     # Remove user from access.conf
     # N.B. This only removes the first entry
-    /bin/sed -i "s/$PBS_USER//" access.conf 
+    /bin/sed -i "s/$PBS_USER//" /etc/security/access.conf 
 
     # Check for other jobs before cleaning up user activity
-    other_jobs=$(/bin/find /tmp -maxdepth 1  -name 'PBS_TEMP_*' -user $PBS_USER)
+    other_jobs=$(/bin/find /tmp -maxdepth 1 -name 'PBS_TEMP_*' -user $PBS_USER)
     if [[ -z "$other_jobs" ]] ; then
         user_cleanup
     else
