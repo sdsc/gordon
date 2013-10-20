@@ -27,7 +27,7 @@ function check_status(){
     # $3 = message if different
     # Offline node if any checks fail and exit
 
-    if [[ $1 != $2 ]] ; then
+    if [[ "$1" != "$2" ]] ; then
         note=$3
         /opt/torque/bin/pbsnodes -oN "$note" $this_host
         /usr/bin/logger -p local0.alert "Node offlined due to: $note"
@@ -45,12 +45,12 @@ function user_cleanup(){
     /usr/bin/killall -9 -u $PBS_USER 
 
     # kill leftover allocated semiphores
-    for S in $(/usr/bin/ipcs -s | /bin/grep "$PBS_USER" | awk '{print $2}') ; do
+    for S in $(/usr/bin/ipcs -s | /bin/grep "$PBS_USER" | /bin/awk '{print $2}') ; do
         /usr/bin/ipcrm -s $S 
     done
 
     # kill leftover allocated shared memory
-    for M in $(ipcs -m | grep "$PBS_USER" | grep -v key | awk '{print $2}') ; do
+    for M in $(/usr/bin/ipcs -m | /bin/grep "$PBS_USER" | /bin/grep -v key | /bin/awk '{print $2}') ; do
         /usr/bin/ipcrm -m $M
     done
 
@@ -61,9 +61,9 @@ function user_cleanup(){
         /bin/sleep 10
     fi
 
-    LO=$(/bin/ps -u $PBS_USER -o "pid=")
-    if [[ -n "$LO" ]] ; then
-        for i in $LO ; do
+    hung_pids=$(/bin/ps -u $PBS_USER -o "pid=")
+    if [[ -n "$hung_pids" ]] ; then
+        for i in $hung_pids ; do
             /usr/bin/logger -p local0.alert "Leftover PID $i from PBS_JOBID $PBS_JOBID"
         done
         # Force node offline

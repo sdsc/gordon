@@ -9,27 +9,23 @@ the job by Torque.
 Prologue Actions
 ----------------
 
-On Both:
+On Both, unless specified:
 
 1. Check PBS ERROR
 2. Remove leftover lock files
-3. Create user-job lock file
-4. Create local scratch dir (check return status)
-5. Add user to access.conf
-6. sdsc_stats
-
-On Mother Superior:
-
-1. Mkdir Oasis scratch (check return status)
-
-On Sisters:
-
-1. Touch .OU and .ER files
+3. Create local scratch dir (check return status)
+4. sdsc_stats
+5. If dedicated, remove all job lock files
+6. Create user-job lock file
+7. 
+ * On Mother Superior: Mkdir Oasis scratch (check return status)
+ * On Sisters: Touch .OU and .ER files
+8. Add user to access.conf
 
 Epilogue Actions
 ----------------
 
-On Both:
+On Both, unless specified:
 
 1. Remove user from access.conf
 2. Remove user-job lock file
@@ -42,9 +38,6 @@ On Both:
 5. sdsc_stats
 6. Remove local scratch dir
 7. Clean up /tmp
-
-On Mother Superior:
-
-1. Remove Oasis scratch dir (check return status)
+8. On Mother Superior: Remove Oasis scratch dir (check return status)
 
 [1]: http://docs.adaptivecomputing.com/torque/Content/topics/12-appendices/prologueAndEpliogueScripts.htm

@@ -31,17 +31,15 @@ function check_status(){
     fi
 }
 
-# Action 1 - Look for PBS ERROR
-
+# Look for PBS ERROR
 /opt/torque/bin/pbsnodes $this_host | grep ERROR  >& /dev/null
 check_status 0 $? "ERROR in Torque status"
 
-# Action 3 - Create user-job lock file
-/bin/su - $PBS_USER -c "/bin/touch /tmp/PBS_TEMP_$PBS_JOBID"
-
-# Action 5 - Create local scratch directory
+# Create local scratch directory
 /bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
 check_status 0 $? "Cannot create local scratch"
+
+# Set local scratch ownership and permissions
 /bin/chmod o+rx /scratch/$PBS_USER
 /bin/chown -R $PBS_USER /scratch/$PBS_USER/$PBS_JOBID
 
@@ -53,18 +51,31 @@ inode_usage=$(/bin/df -i /scratch | /bin/grep scratch)
 
 # Check for node file to see if we're the mother superior
 if [[ -e /var/spool/torque/aux/$PBS_JOBID ]] ; then
-    # Action 5.5 (Mother Superior) - Create Oasis scratch dir
+    # (Mother Superior) Create Oasis scratch dir
     /bin/mkdir -p /oasis/scratch/$PBS_USER/$PBS_JOBID
     check_status 0 $? "Lustre issue, unable to create Oasis scratch dir"
+
+    # Set Oasis scratch ownership and permissions
     /bin/chmod o+rx /oasis/scratch/$PBS_USER
     /bin/chown -R $PBS_USER.$PBS_GROUP /oasis/scratch/$PBS_USER/$PBS_JOBID
 else
-    # Action 5.5 (Sisters) - Touch stderr/stdout files
+    # (Sisters) Touch stderr/stdout files
     touch $TORQUE_HOME/spool/$PBS_JOBID.OU
     touch $TORQUE_HOME/spool/$PBS_JOBID.ER
 fi
 
-# Action 6 - Add user to access list
+if [[ $JOB_QUEUE != "shared" ]] ; then
+    # Dedicate use, clean up all job lock files
+    /bin/rm -f /tmp/PBS_TEMP_*
+
+    # Set access.conf to default
+    /bin/echo '-:ALL EXCEPT root (wheel) (xsede-admin):ALL' > /etc/security/access.conf
+fi
+
+# Create user-job lock file
+/bin/su - $PBS_USER -c "/bin/touch /tmp/PBS_TEMP_$PBS_JOBID"
+
+# Add user to access list
 /bin/sed -i "s/\(EXCEPT.*\):/\1 $PBS_USER:/" /etc/security/access.conf
 
 exit 0

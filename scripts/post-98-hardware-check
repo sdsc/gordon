@@ -18,7 +18,7 @@ fi
 note=$(/opt/sdsc/sbin/health-check.sh)
 offline=$?
 
-if [[ $offline != 0 ]] ; then
+if [[ "$offline" -ne 0 ]] ; then
     this_host=$(/bin/hostname -s)
     /opt/torque/bin/pbsnodes -oN "$note" $this_host
     /usr/bin/logger -p local0.alert "Node offlined due to: $note"
