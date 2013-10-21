@@ -6,21 +6,27 @@ See the [Torque docs][1] for reference.
 Note that the health check script is called at the beginning and end of
 the job by Torque.
 
+Torque Config
+-------------
+
+ * Call the health check script every 5 MOM updates, and at the beginning
+ and end of each job.
+ * Down node if ERROR in message (`$down_on_error 1`).
+
 Prologue Actions
 ----------------
 
 On Both, unless specified:
 
-1. Check PBS ERROR
-2. Remove leftover lock files
-3. Create local scratch dir (check return status)
-4. sdsc_stats
-5. If dedicated, remove all job lock files
-6. Create user-job lock file
-7. 
+1. Remove leftover lock files
+2. Create local scratch dir (check return status)
+3. sdsc_stats
+4. If dedicated, remove all job lock files
+5. Create user-job lock file
+6. 
  * On Mother Superior: Mkdir Oasis scratch (check return status)
  * On Sisters: Touch .OU and .ER files
-8. Add user to access.conf
+7. Add user to access.conf
 
 Epilogue Actions
 ----------------

@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# Gordon prologue, called on the mom. Calls the common script,
-# prologue.common.
+# Gordon prologue, called on the MOM.
 #
 # See the Torque docs for reference:
 # http://docs.adaptivecomputing.com/torque/Content/topics/12-appendices/prologueAndEpliogueScripts.htm
@@ -31,10 +30,6 @@ function check_status(){
     fi
 }
 
-# Look for PBS ERROR
-/opt/torque/bin/pbsnodes $this_host | grep ERROR  >& /dev/null
-check_status 0 $? "ERROR in Torque status"
-
 # Create local scratch directory
 /bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
 check_status 0 $? "Cannot create local scratch"
@@ -50,7 +45,7 @@ inode_usage=$(/bin/df -i /scratch | /bin/grep scratch)
 /usr/bin/logger -p local0.alert "sdsc_stats job start $PBS_JOBID $PBS_USER local scratch inode usage $inode_usage"
 
 # Check for node file to see if we're the mother superior
-if [[ -e /var/spool/torque/aux/$PBS_JOBID ]] ; then
+if [[ -e $TORQUE_HOME/aux/$PBS_JOBID ]] ; then
     # (Mother Superior) Create Oasis scratch dir
     /bin/mkdir -p /oasis/scratch/$PBS_USER/$PBS_JOBID
     check_status 0 $? "Lustre issue, unable to create Oasis scratch dir"

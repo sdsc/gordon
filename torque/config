@@ -1,8 +1,10 @@
 $pbsserver gordon-fe2
 $usecp *:/home /home
 $usecp *:/oasis /oasis
+$usecp *:/projects /projects
 $timeout 120
 $status_update_time 120
 $prologalarm 300
 $node_check_script /opt/sdsc/sbin/health-check.sh
-$node_check_interval 6 jobstart jobend
+$node_check_interval 5 jobstart jobend
+$down_on_error 1

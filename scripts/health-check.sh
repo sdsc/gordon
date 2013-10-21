@@ -117,7 +117,7 @@ check_status 0 $? "/scratch file system problems"
 # Report if any checks fail
 
 if [[ "$unhealthy" -ne 0 ]] ; then
-    echo $note
+    echo "ERROR $note"
     exit -1
 fi
 

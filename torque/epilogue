@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# Gordon epilogue, called on the mom. Calls the common script,
-# epilogue.common.
+# Gordon epilogue, called on the MOM.
 #
 # See the Torque docs for reference:
 # http://docs.adaptivecomputing.com/torque/Content/topics/12-appendices/prologueAndEpliogueScripts.htm
@@ -86,7 +85,7 @@ if [[ $JOB_QUEUE != "shared" ]] ; then
     user_cleanup
 else
     # Shared use, only remove up this job's lock file
-    /bin/su - $PBS_USER -c "/bin/rm -f /tmp/PBS_TEMP_$PBS_JOBID "    
+    /bin/su - $PBS_USER -c "/bin/rm -f /tmp/PBS_TEMP_$PBS_JOBID"    
 
     # Remove user from access.conf
     # N.B. This only removes the first entry
@@ -113,7 +112,7 @@ inode_usage=$(/bin/df -i /scratch | /bin/grep scratch)
 check_status 0 $? "Cannot remove local scratch space"
 
 # Mother superior removes Oasis scratch dir if empty
-if [[ -e /var/spool/torque/aux/$PBS_JOBID ]] ; then
+if [[ -e $TORQUE_HOME/aux/$PBS_JOBID ]] ; then
     /bin/rmdir --ignore-fail-on-non-empty /oasis/scratch/$PBS_USER/$PBS_JOBID
     check_status 0 $? "Lustre issue, cannot remove Oasis scratch dir for $PBS_JOBID"
 fi
@@ -121,7 +120,6 @@ fi
 # Clean up /tmp
 # Get rid of all ordinary files in the /tmp directory older than 168h (7 days)
 # and not accessed or modified in the past 168 hours.
-
 /usr/bin/find /tmp -xdev -atime +8 -mtime +8 -type 'f' -print0 | /usr/bin/xargs -0 -r rm -f
 
 exit 0

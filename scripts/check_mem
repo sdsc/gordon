@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Expected values
+
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Speed: 1333 MHz
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+# Size: 8192 MB
+
+# Verify this
+expectedcount=8
+expectedspeed=1333
+expectedsize=8192
+
+/usr/sbin/dmidecode -t 17 | /bin/grep MHz > /tmp/mem."$$".cnt
+/usr/sbin/dmidecode -t 17 | /bin/grep MHz | /bin/grep $expectedspeed > /tmp/mem."$$".speed
+/usr/sbin/dmidecode -t 17 | /bin/grep Size | /bin/grep MB | /bin/grep $expectedsize > /tmp/mem."$$".size
+
+count=`/usr/bin/wc /tmp/mem."$$".size | /bin/awk '{print $1}'`
+speedcount=`/usr/bin/wc /tmp/mem."$$".speed | /bin/awk '{print $1}'`
+sizecount=`/usr/bin/wc /tmp/mem."$$".size | /bin/awk '{print $1}'`
+
+exitstatus=0
+
+if [ "$count" -ne "$expectedcount" ]
+then
+    /bin/echo "Not enough DIMMs: $expectedcount expected, $count found"
+    exitstatus=-1
+fi
+
+if [ "$speedcount" -ne "$expectedcount" ]
+then
+    /bin/echo "Not enough DIMMs of the correct speed: $expectedcount expected, $speedcount found"
+    exitstatus=-1
+fi
+
+if [ "$sizecount" -ne "$expectedcount" ]
+then
+    /bin/echo "Not enough DIMMs of the correct size: $expectedcount expected, $sizecount found"
+    exitstatus=-1
+fi
+
+# Claen up temp files
+rm -f /tmp/mem."$$".cnt /tmp/mem."$$".speed /tmp/mem."$$".size
+
+exit $exitstatus
