@@ -53,10 +53,6 @@ if [[ -e $TORQUE_HOME/aux/$PBS_JOBID ]] ; then
     # Set Oasis scratch ownership and permissions
     /bin/chmod o+rx /oasis/scratch/$PBS_USER
     /bin/chown -R $PBS_USER.$PBS_GROUP /oasis/scratch/$PBS_USER/$PBS_JOBID
-else
-    # (Sisters) Touch stderr/stdout files
-    touch $TORQUE_HOME/spool/$PBS_JOBID.OU
-    touch $TORQUE_HOME/spool/$PBS_JOBID.ER
 fi
 
 if [[ $JOB_QUEUE != "shared" ]] ; then
