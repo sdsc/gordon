@@ -106,6 +106,7 @@ percent_disk_used=$( /bin/df / | /bin/grep sda | /bin/awk '{print $5}' | /usr/bi
 check_status 0 $(( $percent_disk_used > 90 )) "local disk full"
 
 # Check 8 - test scratch file system
+# TODO: Needs logic for "no flash" nodes
 /bin/grep '^/dev/sdb /scratch xfs rw' /etc/mtab >/dev/null 2>&1
 check_status 0 $? "iSER drive not mounted"
 test_file_name=$(/usr/bin/uuidgen)
