@@ -23,9 +23,7 @@ On Both, unless specified:
 3. sdsc_stats
 4. If dedicated, remove all job lock files
 5. Create user-job lock file
-6. 
- * On Mother Superior: Mkdir Oasis scratch (check return status)
- * On Sisters: Touch .OU and .ER files
+6. On Mother Superior: Create Oasis scratch dir (check return status)
 7. Add user to access.conf
 
 Epilogue Actions
