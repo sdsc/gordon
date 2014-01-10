@@ -75,9 +75,9 @@ function user_cleanup(){
 }
 
 
-if ( -f /etc/sysconfig/pbs_mom ) then
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
     . /etc/sysconfig/pbs_mom
-endif
+if
 
 # Check for whether node is dedicated or shared
 

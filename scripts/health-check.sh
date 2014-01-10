@@ -26,7 +26,7 @@ function check_status(){
     fi
 }
 
-if [ -f /etc/sysconfig/pbs_mom ];then
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
     . /etc/sysconfig/pbs_mom
 fi
 

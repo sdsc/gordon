@@ -30,9 +30,9 @@ function check_status(){
     fi
 }
 
-if ( -f /etc/sysconfig/pbs_mom ) then
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
     . /etc/sysconfig/pbs_mom
-endif
+fi
 
 
 # Create local scratch directory
