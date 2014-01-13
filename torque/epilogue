@@ -74,6 +74,11 @@ function user_cleanup(){
     /bin/find /tmp -user $PBS_USER -type 'f' -print0 | /usr/bin/xargs -0 -r rm -f  
 }
 
+
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
+    . /etc/sysconfig/pbs_mom
+if
+
 # Check for whether node is dedicated or shared
 
 if [[ $JOB_QUEUE != "shared" ]] ; then
@@ -108,8 +113,12 @@ inode_usage=$(/bin/df -i /scratch | /bin/grep scratch)
 /usr/bin/logger -p local0.alert "sdsc_stats job end $PBS_JOBID $PBS_USER local scratch inode usage $inode_usage"
 
 # Remove local per job scratch space
-/bin/rm -rf /scratch/$PBS_USER/$PBS_JOBID
-check_status 0 $? "Cannot remove local scratch space"
+if [[ "$PBS_FLASH" == "noflash" ]]; then
+  check_status 0 0 "noflash node"
+else
+ /bin/rm -rf /scratch/$PBS_USER/$PBS_JOBID
+ check_status 0 $? "Cannot remove local scratch space"
+fi 
 
 # Mother superior removes Oasis scratch dir if empty
 if [[ -e $TORQUE_HOME/aux/$PBS_JOBID ]] ; then

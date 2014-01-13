@@ -30,9 +30,18 @@ function check_status(){
     fi
 }
 
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
+    . /etc/sysconfig/pbs_mom
+fi
+
+
 # Create local scratch directory
-/bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
-check_status 0 $? "Cannot create local scratch"
+if [[ "$PBS_FLASH" == "noflash" ]]; then
+  check_status 0 0 "noflash node"
+else
+ /bin/mkdir -p /scratch/$PBS_USER/$PBS_JOBID
+ check_status 0 $? "Cannot create local scratch"
+fi 
 
 # Set local scratch ownership and permissions
 /bin/chmod o+rx /scratch/$PBS_USER

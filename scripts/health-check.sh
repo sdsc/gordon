@@ -26,6 +26,10 @@ function check_status(){
     fi
 }
 
+if [[ -f /etc/sysconfig/pbs_mom ]] ; then
+    . /etc/sysconfig/pbs_mom
+fi
+
 # Check 1 - IB cards
 
 for card in mlx4_0 mlx4_1 ; do
@@ -106,13 +110,17 @@ percent_disk_used=$( /bin/df / | /bin/grep sda | /bin/awk '{print $5}' | /usr/bi
 check_status 0 $(( $percent_disk_used > 90 )) "local disk full"
 
 # Check 8 - test scratch file system
-# TODO: Needs logic for "no flash" nodes
-/bin/grep '/scratch xfs rw' /etc/mtab >/dev/null 2>&1
-check_status 0 $? "iSER drive not mounted"
-test_file_name=$(/usr/bin/uuidgen)
-/bin/touch /scratch/.$test_file_name
-check_status 0 $? "/scratch file system problems"
-/bin/rm -f /scratch/.$test_file_name
+
+if [[ "$PBS_FLASH" != "noflash" ]] ; then
+    /bin/grep '/scratch xfs rw' /etc/mtab >/dev/null 2>&1
+    check_status 0 $? "iSER drive not mounted"
+    test_file_name=$(/usr/bin/uuidgen)
+    /bin/touch /scratch/.$test_file_name
+    check_status 0 $? "/scratch file system problems"
+    /bin/rm -f /scratch/.$test_file_name
+else
+    check_status 0 0 "noflash node"
+fi
 
 # Report if any checks fail
 
